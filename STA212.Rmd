@@ -1,0 +1,109 @@
+---
+title: "STA22"
+output: html_notebook
+---
+
+```{r}
+library(VGAM)
+library(ggplot2)
+library(MASS)
+library(tidyverse)
+library(caret)
+library(nnet)
+library(corrplot)
+library(mlogit)
+library(caret)
+library(SciViews)
+```
+
+```{r}
+PATH_TO_FILE="C:\\Users\\a.lance\\Documents\\MASTER\\STA211\\STA212\\hearth_disease.csv"
+```
+
+```{r}
+ds<-read.csv(PATH_TO_FILE,sep=";")
+ds<-na.omit(ds)
+```
+
+# Set univariate model for each parameters
+```{r}
+parameters<-c("age","sex","cp" ,"trestbps","chol","fbs","restecg","thalach","exang","oldpeak","slope" ,"ca","thal")
+p_values = numeric()
+p_values2 = numeric()
+z_value<-numeric()
+Beta<-numeric()
+GList<-numeric()
+wald.test.list<-numeric()
+SE.list<-numeric()
+LCI.list<-numeric()
+UCI.list<-numeric()
+for (param in parameters){
+  
+  fmod<-glm(reformulate(c(param), response='target'),data = ds,family = "binomial")
+  nmod <- glm(target~1,data = ds, family = 'binomial')
+  G= -2*ln(as.numeric(exp(logLik(nmod)))/as.numeric(exp(logLik(fmod))))
+  GList<- append(GList,G)
+  p_values2<-append(p_values2,pchisq(G, 1,lower.tail = FALSE))
+  Beta1<-as.numeric(fmod$coefficients[2])
+  Beta<-append(Beta,Beta1)
+  SE<-as.numeric(sqrt(diag(vcov(fmod)))[2])
+  SE.list<-append(SE.list,SE)
+  z_value<-abs(Beta1/SE)
+  wald_test_p_value<-2*pnorm(z_value,lower.tail = FALSE)
+  wald.test.list<-append(wald.test.list,wald_test_p_value)
+  LCI.list<-append( LCI.list,Beta1-1.96*SE)
+  UCI.list<-append( UCI.list,Beta1+1.96*SE)
+}
+
+```
+
+```{r}
+df.results<-data.frame(row.names =parameters )
+df.results$coeffs<-Beta
+df.results$p_value<-p_values2
+df.results$p_valueWT<-wald.test.list
+df.results$SE<-SE.list
+df.results$LCI<-LCI.list
+df.results$UCI<-UCI.list
+df.results
+```
+
+Les paramètres chol et fbs sont exclus
+
+```{r}
+parameters<-c("age","sex","cp" ,"trestbps","restecg","thalach","exang","oldpeak","slope" ,"ca","thal")
+glm.model<-glm(reformulate(parameters, response='target'),data = ds,family = "binomial")
+coeff.list.2<-as.numeric(glm.model$coefficients)
+summary(glm.model)
+```
+
+```{r}
+
+```
+
+paramètres à exclure : age,restecg et slope 
+
+```{r}
+parameters<-c("sex","cp" ,"thalach","exang","oldpeak" ,"ca","thal","trestbps")
+glm.model<-glm(reformulate(parameters, response='target'),data = ds,family = "binomial")
+coeff.list.3<-as.numeric(glm.model$coefficients)
+summary(glm.model)
+```
+```{r}
+parameters_excluded<-c("chol","fbs","age","restecg" ,"slope")
+
+for (p in parameters_excluded){
+  new_param<-append(parameters,p)
+  glm.model<-glm(reformulate(new_param, response='target'),data = ds,family = "binomial")
+  print(summary(glm.model))
+}
+```
+
+# Vérification logits lineaire pour variables continues
+
+```{r}
+
+```
+
+
+
