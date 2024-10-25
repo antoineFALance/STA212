@@ -16,6 +16,7 @@ library(caret)
 library(SciViews)
 library(graphics)
 library(ROCR)
+library(ggplot2)
 ```
 age : age
 sex : sex
@@ -233,39 +234,76 @@ addmargins(contingency.table)
 sum(diag(contingency.table)) / sum(contingency.table)
 ```
 ## Interprétation
+# ODD ratio
 
 ```{r}
-# target~sex+chol
-ds.train$gm50_sex_chol<-glm.final_$coefficients['cp']*ds.train$cp+
-                  glm.final_$coefficients['trestbps']*ds.train$trestbps+
-                  glm.final_$coefficients['thalach']*ds.train$thalach+
-                  glm.final_$coefficients['exang']*ds.train$exang+
-                  glm.final_$coefficients['oldpeak']*ds.train$oldpeak+
-                  glm.final_$coefficients['ca']*ds.train$ca+
-                  glm.final_$coefficients['thal']*ds.train$thal+
-                  glm.final_$coefficients['oldpeak:ca']*ds.train$ca*ds.train$oldpeak+
-                  glm.final_$coefficients['ca:thal']*ds.train$ca*ds.train$thal+
+dich.variables<-c('sex','fbs')
+contin.variables<-c('chol','thalach','oldpeak','trestbps')
+comb.list<-as.character()
+delta.beta.list<-as.numeric()
+for (d.var in dich.variables){
+  for (c.var in contin.variables){
+    comb.list<-append(comb.list,(paste0(c(d.var,c.var),collapse='*')))
+    univar.model<-glm(as.formula(paste0('target~',d.var)),data=ds,family = binomial(link="logit"))
+    multi.model<-glm(as.formula(paste0('target~',paste0(c(d.var,c.var),collapse='+'))),data=ds,family = binomial(link="logit"))
+    multi.interact.model<-glm(as.formula(paste0('target~',paste0(c(d.var,c.var),collapse='+'),'+',paste0(c(d.var,c.var),collapse='*'))),data=ds,family = binomial(link="logit"))
+    Beta1.univar.model<-as.numeric(univar.model$coefficients[d.var])
+    Beta1.multivar.model<-as.numeric(multi.model$coefficients[d.var])
+    delta.Beta.perc<-(Beta1.univar.model-Beta1.multivar.model)/Beta1.multivar.model*100
+    delta.beta.list<-append(delta.beta.list,delta.Beta.perc)
+    print(delta.Beta.perc)
+  }
+}
+```
+
+```{r}
+df.results<-data.frame(row.names =comb.list)
+df.results$Beta.perc.value<-delta.beta.list
+df.results
+```
+#fbs/trestbps
+
+```{r}
+univar.model<-glm(as.formula(paste0('target~','fbs')),data=ds,family = binomial(link="logit"))
+multi.model<-glm(as.formula(paste0('target~',paste0(c('fbs','trestbps'),collapse='+'))),data=ds,family = binomial(link="logit"))
+multi.interact.model<-glm(as.formula(paste0('target~',paste0(c('fbs','trestbps'),collapse='+'),'+',paste0(c('fbs','trestbps'),collapse='*'))),data=ds,family = binomial(link="logit"))
+summary(univar.model)
+summary(multi.model)
+summary(multi.interact.model)
+```
+
+```{r}
+# target~sex+thalach
+ds$gm50_sex_thalach<-glm.final_$coefficients['cp']*ds$cp+
+                  glm.final_$coefficients['trestbps']*ds$trestbps+
+                  glm.final_$coefficients['chol']*ds$chol+
+                  #glm.final_$coefficients['thalach']*ds.train$thalach+
+                  glm.final_$coefficients['exang']*ds$exang+
+                  glm.final_$coefficients['oldpeak']*ds$oldpeak+
+                  glm.final_$coefficients['ca']*ds$ca+
+                  glm.final_$coefficients['thal']*ds$thal+
+                  glm.final_$coefficients['chol:oldpeak']*ds$chol*ds$oldpeak+
+                  glm.final_$coefficients['oldpeak:ca']*ds$ca*ds$oldpeak+
+                  glm.final_$coefficients['ca:thal']*ds$ca*ds$thal+
                   glm.final_$coefficients['(Intercept)']
                   
   
   
-gm50_median<-median(ds$gm50_sex_chol)
-oldspek.median<-median(ds$oldpeak)
+gm50_median<-median(ds$gm50_sex_thalach)
+thalach.median<-median(ds$thalach)
 
-gm_sex1_chol<-function(x){exp(gm50_median+glm.final_$coefficients['chol']*x+glm.final_$coefficients['sex']+glm.final_$coefficients['chol:oldpeak']*x*oldspek.median)/(1+exp(gm50_median+glm.final_$coefficients['chol']*x+glm.final_$coefficients['chol:oldpeak']*x*oldspek.median+glm.final_$coefficients['sex']))}
+gm_sex1_chol<-function(x){exp(gm50_median+glm.final_$coefficients['thalach']*x+glm.final_$coefficients['sex'])/(1+exp(gm50_median+glm.final_$coefficients['thalach']*x+glm.final_$coefficients['sex']))}
 
-gm_sex0_chol<-function(x){exp(gm50_median+glm.final_$coefficients['chol']*x+glm.final_$coefficients['chol:oldpeak']*x*oldspek.median)/(1+exp(gm50_median+glm.final_$coefficients['chol']*x+glm.final_$coefficients['chol:oldpeak']*x*oldspek.median))}
+gm_sex0_chol<-function(x){exp(gm50_median+glm.final_$coefficients['thalach']*x)/(1+exp(gm50_median+glm.final_$coefficients['thalach']*x))}
 
 
 
-curve(gm_sex1_chol, col = 'red',from=0, to=1000)
-curve(gm_sex0_chol, col = 'green',from=0, to=1000, add = TRUE)
+curve(gm_sex1_chol, col = 'red',from=0, to=300)
+curve(gm_sex0_chol, col = 'green',from=0, to=300, add = TRUE)
 
 ```
 
-```{r}
-glm.final_$coefficients['sex']
-```
+
 
 
 
