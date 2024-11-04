@@ -273,37 +273,61 @@ summary(multi.interact.model)
 ```
 
 ```{r}
-# target~sex+thalach
-ds$gm50_sex_thalach<-glm.final_$coefficients['cp']*ds$cp+
-                  glm.final_$coefficients['trestbps']*ds$trestbps+
-                  glm.final_$coefficients['chol']*ds$chol+
-                  #glm.final_$coefficients['thalach']*ds.train$thalach+
-                  glm.final_$coefficients['exang']*ds$exang+
-                  glm.final_$coefficients['oldpeak']*ds$oldpeak+
-                  glm.final_$coefficients['ca']*ds$ca+
-                  glm.final_$coefficients['thal']*ds$thal+
-                  glm.final_$coefficients['chol:oldpeak']*ds$chol*ds$oldpeak+
-                  glm.final_$coefficients['oldpeak:ca']*ds$ca*ds$oldpeak+
-                  glm.final_$coefficients['ca:thal']*ds$ca*ds$thal+
-                  glm.final_$coefficients['(Intercept)']
-                  
-  
-  
-gm50_median<-median(ds$gm50_sex_thalach)
-thalach.median<-median(ds$thalach)
+dich.variables<-c('sex')
+contin.variables<-c('chol','thalach','oldpeak','trestbps')
+covariates<-attr(glm.final_$coefficients,"names")
+median.list<-as.numeric()
+comb.list<-as.character()
+delta.beta.list<-as.numeric()
+for (d.var in dich.variables)
+  {
+  for (c.var in contin.variables)
+    {
+    model.name<-paste0('gm.50.',d.var,'.',c.var)
+    print(model.name)
+    ds[model.name]<-glm.final_$coefficients["(Intercept)"]
+    for (cv in covariates)
+      {
+      if (cv!="(Intercept)")
+      {
+        if (cv!=d.var & cv!=c.var) 
+        { 
+          if (grepl( ':', cv, fixed = TRUE)==TRUE)
+          {
+           cv1<-strsplit(cv,split=':',fixed=TRUE)[[1]][1]
+           cv2<-strsplit(cv,split=':',fixed=TRUE)[[1]][2]
+           
+           ds[model.name]<-ds[model.name]+glm.final_$coefficients[cv]*ds[cv1]*ds[cv2]
+          }
+          else
+            {
+            ds[model.name]<-ds[model.name]+glm.final_$coefficients[cv]*ds[cv]
+            }
+            
+        }
+      }
+      
 
-gm_sex1_chol<-function(x){exp(gm50_median+glm.final_$coefficients['thalach']*x+glm.final_$coefficients['sex'])/(1+exp(gm50_median+glm.final_$coefficients['thalach']*x+glm.final_$coefficients['sex']))}
+    }
+    median.value<-median(ds[,model.name])
+    curve.d1.c<-function(x){exp(median.value+glm.final_$coefficients[c.var]*x+glm.final_$coefficients[d.var]*1)/(1+exp(median.value+glm.final_$coefficients[c.var]*x+glm.final_$coefficients[d.var]*1))}
+    curve.d0.c<-function(x){exp(median.value+glm.final_$coefficients[c.var]*x)/(1+exp(median.value+glm.final_$coefficients[c.var]*x))}
 
-gm_sex0_chol<-function(x){exp(gm50_median+glm.final_$coefficients['thalach']*x)/(1+exp(gm50_median+glm.final_$coefficients['thalach']*x))}
+    
+    print(ggplot() +
+    ggtitle(model.name)+
+    geom_function(fun=curve.d1.c,col='red')+
+    geom_function(fun=curve.d0.c)+
+    ylim(0, 1)+
+    xlim(0, 1.5*max(ds[c.var])))
+    
 
+  }
 
-
-curve(gm_sex1_chol, col = 'red',from=0, to=300)
-curve(gm_sex0_chol, col = 'green',from=0, to=300, add = TRUE)
-
+  }
 ```
 
-
-
-
+```{r}
+glm.final_$coefficients
+```
 
